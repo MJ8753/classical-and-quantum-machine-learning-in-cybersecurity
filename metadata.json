@@ -1,0 +1,6 @@
+{
+  "name": "Classical and Quantum Machine Learning in Cybersecurity",
+  "description": "An interactive playground for exploring classical and quantum machine learning models (Random Forest, XGBoost, LR, SVM, and QSVC) used in cybersecurity attack detection.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
