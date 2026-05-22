@@ -5,6 +5,8 @@
 
 import express, { Request, Response } from "express";
 import path from "path";
+import fs from "fs";
+import csv from "csv-parser";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
@@ -12,256 +14,58 @@ import { CyberLog, AttackType, TrainingResults, PredictResponse } from "./src/ty
 
 dotenv.config({ path: '.env.local' });
 
-// Pre-generated cyber dataset to simulate cybersecurity_attacks.csv
-const INITIAL_CYBER_LOGS: CyberLog[] = [
-  {
-    id: "LOG-001",
-    timestamp: "2026-05-21T02:15:30Z",
-    sourceIp: "192.168.1.105",
-    destIp: "10.0.0.4",
-    packetLength: 1450,
-    protocol: "TCP",
-    srcPort: 49152,
-    destPort: 80,
-    severity: "High",
-    alertsTriggered: true,
-    malwareIndicators: "No Detection",
-    proxyInformation: "No Proxy",
-    firewallLogs: "Allowed",
-    idsIpsAlerts: "No Data",
-    attackType: "DDoS",
-    hour: 2,
-    day: 21,
-    month: 5
-  },
-  {
-    id: "LOG-002",
-    timestamp: "2026-05-21T03:45:12Z",
-    sourceIp: "185.220.101.5",
-    destIp: "10.0.0.8",
-    packetLength: 820,
-    protocol: "TCP",
-    srcPort: 52140,
-    destPort: 443,
-    severity: "High",
-    alertsTriggered: true,
-    malwareIndicators: "Detection",
-    proxyInformation: "Using Proxy",
-    firewallLogs: "Allowed",
-    idsIpsAlerts: "Alert Triggered",
-    attackType: "Malware",
-    hour: 3,
-    day: 21,
-    month: 5
-  },
-  {
-    id: "LOG-003",
-    timestamp: "2026-05-21T04:10:05Z",
-    sourceIp: "93.184.216.34",
-    destIp: "10.0.0.12",
-    packetLength: 120,
-    protocol: "UDP",
-    srcPort: 53,
-    destPort: 53,
-    severity: "Medium",
-    alertsTriggered: false,
-    malwareIndicators: "No Detection",
-    proxyInformation: "No Proxy",
-    firewallLogs: "Blocked",
-    idsIpsAlerts: "No Data",
-    attackType: "Phishing",
-    hour: 4,
-    day: 21,
-    month: 5
-  },
-  {
-    id: "LOG-004",
-    timestamp: "2026-05-21T05:55:40Z",
-    sourceIp: "203.0.113.111",
-    destIp: "10.0.1.20",
-    packetLength: 5120,
-    protocol: "TCP",
-    srcPort: 60412,
-    destPort: 22,
-    severity: "High",
-    alertsTriggered: true,
-    malwareIndicators: "No Detection",
-    proxyInformation: "No Proxy",
-    firewallLogs: "Allowed",
-    idsIpsAlerts: "Alert Triggered",
-    attackType: "Intrusion",
-    hour: 5,
-    day: 21,
-    month: 5
-  },
-  {
-    id: "LOG-005",
-    timestamp: "2026-05-21T06:22:18Z",
-    sourceIp: "198.51.100.80",
-    destIp: "10.0.0.4",
-    packetLength: 3400,
-    protocol: "TCP",
-    srcPort: 45001,
-    destPort: 445,
-    severity: "High",
-    alertsTriggered: true,
-    malwareIndicators: "Detection",
-    proxyInformation: "No Proxy",
-    firewallLogs: "Blocked",
-    idsIpsAlerts: "Alert Triggered",
-    attackType: "Ransomware",
-    hour: 6,
-    day: 21,
-    month: 5
-  },
-  {
-    id: "LOG-006",
-    timestamp: "2026-05-21T07:11:45Z",
-    sourceIp: "192.168.1.140",
-    destIp: "10.2.2.5",
-    packetLength: 150,
-    protocol: "ICMP",
-    srcPort: 0,
-    destPort: 0,
-    severity: "Low",
-    alertsTriggered: false,
-    malwareIndicators: "No Detection",
-    proxyInformation: "No Proxy",
-    firewallLogs: "Allowed",
-    idsIpsAlerts: "No Data",
-    attackType: "Intrusion",
-    hour: 7,
-    day: 21,
-    month: 5
-  },
-  {
-    id: "LOG-007",
-    timestamp: "2026-05-21T08:02:11Z",
-    sourceIp: "45.138.16.22",
-    destIp: "10.0.0.15",
-    packetLength: 12000,
-    protocol: "TCP",
-    srcPort: 32801,
-    destPort: 80,
-    severity: "High",
-    alertsTriggered: true,
-    malwareIndicators: "No Detection",
-    proxyInformation: "Using Proxy",
-    firewallLogs: "Allowed",
-    idsIpsAlerts: "Alert Triggered",
-    attackType: "DDoS",
-    hour: 8,
-    day: 21,
-    month: 5
-  },
-  {
-    id: "LOG-008",
-    timestamp: "2026-05-21T09:30:15Z",
-    sourceIp: "94.242.45.121",
-    destIp: "10.0.0.9",
-    packetLength: 2100,
-    protocol: "TCP",
-    srcPort: 54122,
-    destPort: 443,
-    severity: "High",
-    alertsTriggered: true,
-    malwareIndicators: "No Detection",
-    proxyInformation: "Using Proxy",
-    firewallLogs: "Allowed",
-    idsIpsAlerts: "No Data",
-    attackType: "Phishing",
-    hour: 9,
-    day: 21,
-    month: 5
-  },
-  {
-    id: "LOG-009",
-    timestamp: "2026-05-21T09:44:00Z",
-    sourceIp: "192.168.1.55",
-    destIp: "10.0.0.4",
-    packetLength: 450,
-    protocol: "UDP",
-    srcPort: 53,
-    destPort: 53,
-    severity: "Medium",
-    alertsTriggered: false,
-    malwareIndicators: "No Detection",
-    proxyInformation: "No Proxy",
-    firewallLogs: "Allowed",
-    idsIpsAlerts: "No Data",
-    attackType: "Malware",
-    hour: 9,
-    day: 21,
-    month: 5
-  },
-  {
-    id: "LOG-010",
-    timestamp: "2026-05-21T09:59:22Z",
-    sourceIp: "192.168.10.22",
-    destIp: "10.0.0.100",
-    packetLength: 8500,
-    protocol: "TCP",
-    srcPort: 3389,
-    destPort: 3389,
-    severity: "High",
-    alertsTriggered: true,
-    malwareIndicators: "No Detection",
-    proxyInformation: "No Proxy",
-    firewallLogs: "Blocked",
-    idsIpsAlerts: "Alert Triggered",
-    attackType: "Ransomware",
-    hour: 9,
-    day: 21,
-    month: 5
-  }
-];
-
-// Helper to expand logs to mock a realistic database of 100 cybersecurity events
-const generateExpandedLogs = (): CyberLog[] => {
-  const result = [...INITIAL_CYBER_LOGS];
-  const srcIps = ["45.89.23.11", "192.168.1.99", "185.112.144.10", "103.45.201.88", "92.222.100.9"];
-  const destIps = ["10.0.0.4", "10.0.0.8", "10.0.1.20", "10.0.2.14", "10.5.5.5"];
-  const attacks: AttackType[] = ["DDoS", "Malware", "Phishing", "Intrusion", "Ransomware"];
-  const protocols = ["TCP", "UDP", "ICMP"] as const;
-  const severities = ["Low", "Medium", "High"] as const;
-  
-  for (let i = 11; i <= 100; i++) {
-    const attack = attacks[i % attacks.length];
-    const protocol = protocols[i % protocols.length];
-    const severity = severities[i % severities.length];
-    const alertsTriggered = i % 3 !== 0; // mostly triggers alerts
-    const malware = attack === "Malware" || attack === "Ransomware" ? "Detection" : "No Detection";
-    const proxy = i % 4 === 0 ? "Using Proxy" : "No Proxy";
-    const firewall = i % 5 === 0 ? "Blocked" : "Allowed";
-    const ids = alertsTriggered && i % 2 === 0 ? "Alert Triggered" : "No Data";
-    const packetLength = attack === "DDoS" ? 8000 + (i * 20) : (attack === "Ransomware" ? 4000 + (i * 7) : 120 + (i * 9));
-    const destPort = attack === "DDoS" ? 80 : (attack === "Intrusion" ? 22 : (attack === "Phishing" ? 443 : 8080));
-
-    result.push({
-      id: `LOG-0${i}`,
-      timestamp: `2026-05-21T${String(Math.floor(i / 5)).padStart(2, "0")}:${String((i * 7) % 60).padStart(2, "0")}:11Z`,
-      sourceIp: srcIps[i % srcIps.length],
-      destIp: destIps[i % destIps.length],
-      packetLength,
-      protocol,
-      srcPort: 30000 + (i * 123) % 30000,
-      destPort,
-      severity,
-      alertsTriggered,
-      malwareIndicators: malware,
-      proxyInformation: proxy,
-      firewallLogs: firewall,
-      idsIpsAlerts: ids,
-      attackType: attack,
-      hour: Math.floor(i / 5) % 24,
-      day: 21,
-      month: 5
-    });
-  }
-  return result;
+// Load cyber dataset from CSV file
+const loadCyberLogsFromCSV = (): Promise<CyberLog[]> => {
+  return new Promise((resolve, reject) => {
+    const logs: CyberLog[] = [];
+    const csvPath = path.join(process.cwd(), 'data', 'cybersecurity_attacks.csv');
+    
+    fs.createReadStream(csvPath)
+      .pipe(csv())
+      .on('data', (row: any, index: number) => {
+        try {
+          const timestamp = new Date(row['Timestamp']);
+          const hour = timestamp.getHours();
+          const day = timestamp.getDate();
+          const month = timestamp.getMonth() + 1;
+          
+          const log: CyberLog = {
+            id: `LOG-${String(index + 1).padStart(5, '0')}`,
+            timestamp: row['Timestamp'],
+            sourceIp: row['Source IP Address'],
+            destIp: row['Destination IP Address'],
+            packetLength: parseInt(row['Packet Length']) || 500,
+            protocol: (row['Protocol'] || 'TCP') as "TCP" | "UDP" | "ICMP",
+            srcPort: parseInt(row['Source Port']) || 0,
+            destPort: parseInt(row['Destination Port']) || 0,
+            severity: (row['Severity Level'] || 'Medium') as "Low" | "Medium" | "High",
+            alertsTriggered: (row['Alerts/Warnings'] && row['Alerts/Warnings'].toLowerCase() === 'alert triggered') ? true : false,
+            malwareIndicators: row['Malware Indicators'] || 'No Detection',
+            proxyInformation: row['Proxy Information'] || 'No Proxy',
+            firewallLogs: row['Firewall Logs'] || 'Allowed',
+            idsIpsAlerts: row['IDS/IPS Alerts'] || 'No Data',
+            attackType: (row['Attack Type'] || 'DDoS') as AttackType,
+            hour,
+            day,
+            month
+          };
+          logs.push(log);
+        } catch (error) {
+          console.error('Error parsing CSV row:', error);
+        }
+      })
+      .on('end', () => {
+        console.log(`✅ Loaded ${logs.length} cyber logs from CSV`);
+        resolve(logs);
+      })
+      .on('error', (error) => {
+        console.error('Error reading CSV file:', error);
+        reject(error);
+      });
+  });
 };
 
-const EXPANDED_DATABASE = generateExpandedLogs();
+let EXPANDED_DATABASE: CyberLog[] = [];
 
 // Model configuration benchmarks (Authentic simulation data based on cyber security ML pipelines)
 const TRAINING_METRICS = {
@@ -429,6 +233,18 @@ const ROC_CURVES = {
 
 // Express Entry point
 async function startServer() {
+  try {
+    // Load cyber logs from CSV file
+    console.log('📂 Loading cyber logs from CSV file...');
+    EXPANDED_DATABASE = await loadCyberLogsFromCSV();
+    console.log(`✅ Successfully loaded ${EXPANDED_DATABASE.length} cyber logs`);
+  } catch (error) {
+    console.error('❌ Failed to load CSV file:', error);
+    console.log('⚠️ Using fallback data...');
+    // Fallback: use empty array or default data if CSV fails
+    EXPANDED_DATABASE = [];
+  }
+
   const app = express();
   app.use(express.json());
 
